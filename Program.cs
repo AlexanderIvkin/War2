@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace War2
 {
@@ -11,29 +9,23 @@ namespace War2
         static void Main(string[] args)
         {
             Battle battle = new Battle();
+
             battle.Execute();
-        }
-    }
-
-    static class UserUtills
-    {
-        private static Random s_random = new Random();
-
-        public static int ReturnPositiveRandomNumber(int maxValue)
-        {
-            return s_random.Next(maxValue);
-        }
-
-        public static int ReturnRandomNumber(int minValue, int maxValue)
-        {
-            return s_random.Next(minValue, maxValue);
         }
     }
 
     class Battle
     {
-        private Platoon _platoon1 = new Platoon();
-        private Platoon _platoon2 = new Platoon();
+        private FighterCreator _fighterCreator;
+        private Platoon _platoon1;
+        private Platoon _platoon2;
+
+        public Battle()
+        {
+            _fighterCreator = new FighterCreator();
+            _platoon1 = new Platoon(_fighterCreator);
+            _platoon2 = new Platoon(_fighterCreator);
+        }
 
         public void Execute()
         {
@@ -41,26 +33,29 @@ namespace War2
 
             while (_platoon1.FightersCount > 0 && _platoon2.FightersCount > 0)
             {
-                _platoon1.Attack(_platoon2);
-                _platoon2.Attack(_platoon1);
+                _platoon1.Attack(_platoon2.GetAllFighters());
+                _platoon2.Attack(_platoon1.GetAllFighters());
+
+                _platoon1.RemoveDeadFighters();
+                _platoon2.RemoveDeadFighters();
             }
 
-            HonoringWinner();
+            HonorWinner();
         }
 
-        private void HonoringWinner()
+        private void HonorWinner()
         {
             if (_platoon1.FightersCount > 0)
             {
-                Console.WriteLine("Победил Взвод номер " + _platoon1.ID);
+                Console.WriteLine("Победил Взвод номер " + _platoon1.Id);
             }
             else if (_platoon2.FightersCount > 0)
             {
-                Console.WriteLine("Победил Взвод номер " + _platoon2.ID);
+                Console.WriteLine("Победил Взвод номер " + _platoon2.Id);
             }
             else
             {
-                Console.WriteLine("Победила дружба! Или проиграла.. Короче живых ни у кого нет.");
+                Console.WriteLine("Победила дружба! Или проиграла.. Короче в живых никого нет.");
             }
         }
     }
@@ -69,40 +64,38 @@ namespace War2
     {
         private static int s_count = 0;
 
-        private List<IDamageble> _fighters = new List<IDamageble>();
-        private Creator _creator = new Creator();
+        private List<Fighter> _fighters = new List<Fighter>();
+        private FighterCreator _creator;
 
-        public Platoon()
+        public Platoon(FighterCreator creator)
         {
             s_count++;
-            CreateFighters();
-            ID = s_count;
+            Id = s_count;
+            _creator = creator;
+            FillFighters();
         }
 
-
-        public int ID { get; }
+        public int Id { get; }
         public int FightersCount => _fighters.Count;
 
-        public void Attack(Platoon enemyPlatoon)
+        public void Attack(List<Fighter> _enemyFighters)
         {
-            RemoveDeadFighters();
-
-            Console.WriteLine("\nХод взвода номер " + ID);
+            Console.WriteLine("\nХод взвода номер " + Id);
 
             foreach (Fighter fighter in _fighters)
             {
-                fighter.MakeTurn(enemyPlatoon);
+                fighter.MakeTurn(_enemyFighters);
             }
         }
 
-        public List<IDamageble> ReturnAllFighters()
+        public List<Fighter> GetAllFighters()
         {
             return _fighters.ToList();
         }
 
-        private void RemoveDeadFighters()
+        public void RemoveDeadFighters()
         {
-            List<IDamageble> deadFighters = new List<IDamageble>();
+            List<Fighter> deadFighters = new List<Fighter>();
 
             foreach (Fighter fighter in _fighters)
             {
@@ -114,26 +107,21 @@ namespace War2
 
             foreach (Fighter fighter in deadFighters)
             {
-                Console.WriteLine($"\nВзвод {ID} потерял {fighter.Name}");
+                Console.WriteLine($"\nВзвод {Id} потерял {fighter.Name}");
                 _fighters.Remove(fighter);
             }
         }
 
-        private void CreateFighters()
+        private void FillFighters()
         {
-            _fighters.Add(_creator.GetFighter());
-            _fighters.Add(_creator.GetCriticalWarrior());
-            _fighters.Add(_creator.GetElectricMage());
-            _fighters.Add(_creator.GetFireMage());
+            _fighters.Add(_creator.CreateFighter());
+            _fighters.Add(_creator.CreateCriticalWarrior());
+            _fighters.Add(_creator.CreateElectricMage());
+            _fighters.Add(_creator.CreateFireMage());
         }
     }
 
-    interface IDamageble
-    {
-        void TakeDamage(int damage);
-    }
-
-    class Creator
+    class FighterCreator
     {
         private int _minHealth = 80;
         private int _maxHealth = 120;
@@ -146,25 +134,30 @@ namespace War2
         private string _electrigMageName = "Электро-маг";
         private string _fireMageName = "Огненный маг";
 
-        private int GetRandomHealth()
+        private int GenerateRandomHealth()
         {
-            return UserUtills.ReturnRandomNumber(_minHealth, _maxHealth);
+            return UserUtills.GenerateRandomNumber(_minHealth, _maxHealth);
         }
 
-        private int GetRandomDamage()
+        private int GenerateRandomDamage()
         {
-            return UserUtills.ReturnRandomNumber(_minDamage, _maxDamage);
+            return UserUtills.GenerateRandomNumber(_minDamage, _maxDamage);
         }
 
-        private int GetRandomArmor()
+        private int GenerateRandomArmor()
         {
-            return UserUtills.ReturnRandomNumber(_minArmor, _maxArmor);
+            return UserUtills.GenerateRandomNumber(_minArmor, _maxArmor);
         }
 
-        public Fighter GetFighter() => new Fighter(GetRandomHealth(), GetRandomDamage(), GetRandomArmor());
-        public Fighter GetCriticalWarrior() => new CriticalFighter(GetRandomHealth(), GetRandomDamage(), GetRandomArmor(), _criticalFighterName);
-        public Fighter GetElectricMage() => new ElectricMage(GetRandomHealth(), GetRandomDamage(), GetRandomArmor(), _electrigMageName, _maxTargets);
-        public Fighter GetFireMage() => new FireMage(GetRandomHealth(), GetRandomDamage(), GetRandomArmor(), _fireMageName, _maxTargets);
+        public Fighter CreateFighter() => new Fighter(GenerateRandomHealth(), GenerateRandomDamage(), GenerateRandomArmor());
+        public Fighter CreateCriticalWarrior() => new CriticalFighter(GenerateRandomHealth(), GenerateRandomDamage(), GenerateRandomArmor(), _criticalFighterName);
+        public Fighter CreateElectricMage() => new ElectricMage(GenerateRandomHealth(), GenerateRandomDamage(), GenerateRandomArmor(), _electrigMageName, _maxTargets);
+        public Fighter CreateFireMage() => new FireMage(GenerateRandomHealth(), GenerateRandomDamage(), GenerateRandomArmor(), _fireMageName, _maxTargets);
+    }
+
+    interface IDamageble
+    {
+        void TakeDamage(int damage);
     }
 
     class Fighter : IDamageble
@@ -190,15 +183,16 @@ namespace War2
         public bool IsDead => Health <= 0;
 
         protected internal string Name { get; }
+
         protected int Health { get; private set; }
         protected int Damage { get; }
         protected int Armor { get; }
         protected int MaxTargets { get; }
 
 
-        public void MakeTurn(Platoon enemyPlatoon)
+        public void MakeTurn(List<Fighter> enemyFighters)
         {
-            Attack(SelectTargets(enemyPlatoon));
+            Attack(SelectTargets(enemyFighters));
         }
 
         public void TakeDamage(int damage)
@@ -210,17 +204,18 @@ namespace War2
         protected virtual void Attack(List<IDamageble> targets)
         {
             Console.WriteLine($"\n{Name} атакует!");
+
             foreach (IDamageble target in targets)
             {
                 target.TakeDamage(Damage);
             }
         }
 
-        protected virtual List<IDamageble> SelectTargets(Platoon platoon)
+        protected virtual List<IDamageble> SelectTargets(List<Fighter> enemyFighters)
         {
             List<IDamageble> selectedTargets = new List<IDamageble>();
 
-            selectedTargets.Add(platoon.ReturnAllFighters()[UserUtills.ReturnPositiveRandomNumber(platoon.ReturnAllFighters().Count)]);
+            selectedTargets.Add(enemyFighters[UserUtills.GeneratePositiveRandomNumber(enemyFighters.Count)]);
 
             return selectedTargets;
         }
@@ -230,10 +225,7 @@ namespace War2
     {
         private readonly int _damageFactor = 2;
 
-        public CriticalFighter(int health, int damage, int armor, string name) : base(health, damage, armor, name)
-        {
-
-        }
+        public CriticalFighter(int health, int damage, int armor, string name) : base(health, damage, armor, name) { }
 
         protected override void Attack(List<IDamageble> targets)
         {
@@ -248,52 +240,60 @@ namespace War2
 
     class ElectricMage : Fighter
     {
-        public ElectricMage(int health, int damage, int armor, string name, int targetsCount) : base(health, damage, armor, name, targetsCount)
-        {
+        public ElectricMage(int health, int damage, int armor, string name, int targetsCount) : base(health, damage, armor, name, targetsCount) { }
 
-        }
-
-        protected override List<IDamageble> SelectTargets(Platoon platoon)
+        protected override List<IDamageble> SelectTargets(List<Fighter> enemyFighters)
         {
-            List<IDamageble> potencialTargets = platoon.ReturnAllFighters();
+            List<Fighter> potencialTargets = enemyFighters;
             List<IDamageble> selectedTargets = new List<IDamageble>();
             IDamageble enemyFighter;
+            int selectedFighterIndex;
 
             while (potencialTargets.Count > 0 && selectedTargets.Count < MaxTargets)
             {
-                enemyFighter = potencialTargets[UserUtills.ReturnPositiveRandomNumber(potencialTargets.Count)];
+                selectedFighterIndex = UserUtills.GeneratePositiveRandomNumber(potencialTargets.Count);
+                enemyFighter = potencialTargets[selectedFighterIndex];
                 selectedTargets.Add(enemyFighter);
-                potencialTargets.Remove(enemyFighter);
+                potencialTargets.RemoveAt(selectedFighterIndex);
             }
 
             return selectedTargets;
-        }
-
-        protected override void Attack(List<IDamageble> target)
-        {
-            base.Attack(target);
         }
     }
 
     class FireMage : Fighter
     {
-        public FireMage(int health, int damage, int armor, string name, int targetsCount) : base(health, damage, armor, name, targetsCount)
-        {
+        public FireMage(int health, int damage, int armor, string name, int targetsCount) : base(health, damage, armor, name, targetsCount) { }
 
-        }
-
-        protected override List<IDamageble> SelectTargets(Platoon platoon)
+        protected override List<IDamageble> SelectTargets(List<Fighter> enemyFighters)
         {
             List<IDamageble> selectedTargets = new List<IDamageble>();
             IDamageble enemyFighter;
+            int selectedFighterIndex;
 
-            while (platoon.FightersCount > 0 && selectedTargets.Count < MaxTargets)
+            while (enemyFighters.Count > 0 && selectedTargets.Count < MaxTargets)
             {
-                enemyFighter = platoon.ReturnAllFighters()[UserUtills.ReturnPositiveRandomNumber(platoon.FightersCount)];
+                selectedFighterIndex = UserUtills.GeneratePositiveRandomNumber(enemyFighters.Count);
+                enemyFighter = enemyFighters[selectedFighterIndex];
                 selectedTargets.Add(enemyFighter);
             }
 
             return selectedTargets;
+        }
+    }
+
+    static class UserUtills
+    {
+        private static Random s_random = new Random();
+
+        public static int GeneratePositiveRandomNumber(int maxValue)
+        {
+            return s_random.Next(maxValue);
+        }
+
+        public static int GenerateRandomNumber(int minValue, int maxValue)
+        {
+            return s_random.Next(minValue, maxValue);
         }
     }
 }
